@@ -1,11 +1,11 @@
 <template>
   <div class="game-area">
     <div class="player-pawns-area">
-      <h3>Black Pawns<strong v-if="currentPlayer === 'black'">のターンです。</strong></h3>
+      <h3 style="line-height: 1.5;">Black Pawns<strong v-if="currentPlayer === 'black'" style="line-height: 1">のターンです。</strong></h3>
       <div class="player-pawns black">
-        <template v-for="(pawn, index) in playerPawns.black" :key="index">
-          <Pawn :pawn="pawn" @pawn-selected="selectPawn" />
-        </template>
+          <template v-for="(pawn, index) in playerPawns.black" :key="index">
+            <Pawn :pawn="pawn" />
+          </template>
       </div>
     </div>
 
@@ -21,19 +21,19 @@
             'highlight': isTileHighlighted(rowIndex, colIndex),
             'blinking': tile?.id === selectingId 
           }"
-          @click="placeTileIfLegal(rowIndex, colIndex, tile)"
+          @click="handleTileClick(rowIndex, colIndex, tile)"
         >
-          <span v-if="tile">{{ tile.kanji }}</span>
+          <span v-if="tile">{{ tile?.kanji }}</span>
         </div>
       </div>
     </div>
 
     <div class="player-pawns-area">
-      <h3>White Pawns<strong v-if="currentPlayer === 'white'">のターンです。</strong></h3>
+      <h3  style="line-height: 1.5;">White Pawns<strong v-if="currentPlayer === 'white'">のターンです。</strong></h3>
       <div class="player-pawns white">
-        <template v-for="(pawn, index) in playerPawns.white" :key="index">
-          <Pawn :pawn="pawn" @pawn-selected="selectPawn" />
-        </template>
+          <template v-for="(pawn, index) in playerPawns.white" :key="index">
+            <Pawn :pawn="pawn" />
+          </template>
       </div>
     </div>
   </div>
@@ -50,8 +50,8 @@ export default {
   },
   data() {
     return {
-      board: null,
-      currentPlayer: "black",
+      board: null, // The 9x9 game board
+      currentPlayer: "black", // Current player's turn
       playerPawns: {
         black: [],
         white: [],
@@ -59,8 +59,8 @@ export default {
       GUNGI_PAWNS,
       INITIAL_SETUP,
       selectingId: null,
-      selectedTile: null,
-      possibleMoves: [],
+      selectedTile: null, // Stores the currently selected tile or pawn
+      possibleMoves: [], // Highlighted valid moves
     };
   },
   methods: {
@@ -100,47 +100,68 @@ export default {
         }
       });
     },
-    selectPawn(pawn) {
-      console.log('tryna click it');
-      if (pawn.color !== this.currentPlayer) return;
-      this.selectingId = pawn.id;
-      this.selectedTile = pawn;
-      this.calculatePossibleMoves(pawn);
+    handleTileClick(row, col, tile) {
+      // console.log('hello');
+      if (tile && tile.color === this.currentPlayer) {
+        // Select the pawn and calculate its possible moves
+        this.selectedTile = tile;
+        this.selectingId = tile.id;
+        this.calculatePossibleMoves(tile);
+      } else if (this.selectedTile && this.isTileHighlighted(row, col)) {
+        // Move the selected pawn to the new tile
+        this.placeTile(row, col);
+      } else {
+        // Clear selection if clicked elsewhere
+        this.clearSelection();
+      }
     },
-    calculatePossibleMoves(pawn) {
-      this.possibleMoves = [];
-      const { currentLocation, moves } = pawn;
-      const { row, col } = currentLocation;
+    calculatePossibleMoves(tile) {
+  this.possibleMoves = [];
+  const { currentLocation, moves, color } = tile;
+  const { row, col } = currentLocation;
 
-      moves.tier1.forEach(({ x, y }) => {
-        const newRow = row + y;
-        const newCol = col + x;
+  // Adjust movement direction for white pawns
+  const directionMultiplier = color === "white" ? -1 : 1;
 
-        if (newRow >= 0 && newRow < 9 && newCol >= 0 && newCol < 9) {
-          const tile = this.board[newRow][newCol];
-          if (!tile || tile.color !== this.currentPlayer) {
-            this.possibleMoves.push({ row: newRow, col: newCol });
-          }
-        }
-      });
-    },
+  moves.tier1.forEach(({ x, y }) => {
+    const newRow = row + y * directionMultiplier;
+    const newCol = col + x * directionMultiplier;
+
+    if (newRow >= 0 && newRow < 9 && newCol >= 0 && newCol < 9) {
+      const targetTile = this.board[newRow][newCol];
+      if (!targetTile || targetTile.color !== this.currentPlayer) {
+        this.possibleMoves.push({ row: newRow, col: newCol });
+      }
+    }
+  });
+},
+
     isTileHighlighted(row, col) {
       return this.possibleMoves.some((move) => move.row === row && move.col === col);
     },
-    placeTileIfLegal(rowIndex, colIndex) {
-      if (this.selectedTile && this.isTileHighlighted(rowIndex, colIndex)) {
-        const { row: oldRow, col: oldCol } = this.selectedTile.currentLocation;
-        this.board[oldRow][oldCol] = null;
-        this.selectedTile.currentLocation = { row: rowIndex, col: colIndex };
-        this.board[rowIndex][colIndex] = { ...this.selectedTile };
-        this.possibleMoves = [];
-        this.selectedTile = null;
-        this.selectingId = null;
-      }
+    placeTile(row, col) {
+      const { row: oldRow, col: oldCol } = this.selectedTile.currentLocation;
+
+      // Move the selected pawn to the new location
+      this.board[oldRow][oldCol] = null;
+      this.selectedTile.currentLocation = { row, col };
+      this.board[row][col] = { ...this.selectedTile };
+
+      // Clear selection and end turn
+      this.clearSelection();
+      this.switchTurn();
+    },
+    clearSelection() {
+      this.selectingId = null;
+      this.selectedTile = null;
+      this.possibleMoves = [];
+    },
+    switchTurn() {
+      this.currentPlayer = this.currentPlayer === "black" ? "white" : "black";
     },
   },
   mounted() {
-    console.clear();
+    console.clear()
     this.board = this.createEmptyBoard();
     this.initializePawnPools();
     this.initializeBoardSetup();
@@ -150,7 +171,7 @@ export default {
 
 <style>
   .highlight {
-    background-color: rgba(0, 255, 0, 0.5);
+    background-color: rgba(0, 255, 0, 0.5) !important;
   }
   /* General Styles */
   .game-area {

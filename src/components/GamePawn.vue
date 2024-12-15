@@ -1,5 +1,5 @@
 <template>
-  <div v-if="pawn.state !== 'active'" class="pawn" :class="{ 'taken': pawn.state === 'taken' }" @click="selectPawn">
+  <div v-if="pawn.state !== 'active'" class="pawn" :class="{ 'taken': pawn.state === 'taken' }" @click="selectPawn(pawn)">
     <span>{{ pawn.kanji }}</span>
   </div>
 </template>
